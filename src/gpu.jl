@@ -110,15 +110,21 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
             end
         end
         if usegpu && gpuCount() > 0
+            if haskey(ENV,"CUDA_VISIBLE_DEVICES")
+                ids = parse.(Int,split(ENV["CUDA_VISIBLE_DEVICES"],","))
+            else
+                ids = 0:gpuCount()-1
+            end
+            
             if GPU >= 0
                 return
-            elseif gpuCount() == 1
+            elseif gpuCount() == 1   
                 pick = 0
             else # Pick based on memory usage
                 pick = free = same = -1
-                for i=0:gpuCount()-1
+                for i=ids
                     if nvmlfound
-                        freemem = nvmlDeviceGetMemoryInfo(nvmlid(i))[2]
+                        freemem = nvmlDeviceGetMemoryInfo(nvmlid(0))[2]
                     else
                         @cudart(cudaSetDevice, (Cint,), i)
                         freemem = cudaMemGetInfo()[1]
@@ -134,7 +140,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
                     end
                 end
             end
-            gpu(pick)
+            gpu(findfirst(==(pick),ids)-1)
         else
             for i=0:gpuCount()-1
                 @cudart(cudaDeviceReset,())
